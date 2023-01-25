@@ -210,7 +210,9 @@ end
 
 function GameState(z)
     playerturn = false
-        for tilei in all(tileupdateindex) do
+    UpdateTiles()
+
+    for tilei in all(tileupdateindex) do
         del(tileupdateindex, tilei)
     end
     add(tileupdateindex, player.tileindex)
@@ -348,21 +350,6 @@ function GameState(z)
         enemyspawncount += 1
     end
 
-    z = 2
-    --Dice Turn
-    countj = 1
-    if z == 2 then
-        for diceval in all(tileupdateindex) do
-            if tiles[tileupdateindex[countj]].value != 7 then
-                tiles[tileupdateindex[countj]].value -= 1
-            end
-            countj += 1
-        end
-    end
-
-    if  countz == #enemies then
-        countz -= 1
-    end
     countz = 1
     if #enemies != 0 then
         for enemytwoval in all(enemies) do
@@ -375,7 +362,24 @@ function GameState(z)
         end
     end
 
-    playerturn = true  
+    if tiles[player.tileindex].value <= 0 then
+        gameover = true
+    end
+end
+
+function UpdateTiles()
+    countj = 1
+    for diceval in all(tileupdateindex) do
+        if tiles[tileupdateindex[countj]].value != 7 then
+            tiles[tileupdateindex[countj]].value -= 1
+        end
+        countj += 1
+    end
+
+    if  countz == #enemies then
+        countz -= 1
+    end
+    playerturn = true
 end
 
 function _update()
