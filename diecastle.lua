@@ -18,19 +18,24 @@ function _init()
 
     debugtext = ""
 
+    turncount = 0
+    slaincount = 0
+
     diceprimaryx = 109
     diceprimaryy = 101
     dicesecondaryx = 109
     dicesecondaryy = 77
 
+    bordercolordefault = 10
+    bordercolor = bordercolordefault
+
+    inputlockmax = 30
+    inputlock = inputlockmax
+
     enemyspawncount = 0
     enemyspawncountmax = 5
 
     diceinventory={}
-
-    inputdelaycount = 0
-    inputdelaycountmax = 0
-
     tileupdateindex={}
 
     gameover = false
@@ -42,9 +47,10 @@ function StartGame()
     GenerateBackground()
     GenerateLevel()
 
+    music(0)
     player={}
     player.x = 42
-    player.y = 49
+    player.y = 50
     player.sprtopx = 96
     player.sprtopy = 0
     player.sprbotx = 94
@@ -79,16 +85,24 @@ function GenerateBackground()
         end
     end
     
-    rectfill(4,4,101,113,10) -- Level Yellow Border
+    rectfill(4,4,101,113,bordercolor) -- Level Yellow Border
     rectfill(5,5,100,112,0) -- Level Background
-    rectfill(108,4,121,88,10) -- Dice Inventory Secondary Border
-    rectfill(108,89,109,89,10) -- Dice Inventory Secondary Border
-    rectfill(120,89,121,89,10) -- Dice Inventory Secondary Border
+
+    rectfill(108,4,121,88,bordercolor) -- Dice Inventory Secondary Border
+    rectfill(108,89,109,89,bordercolor) -- Dice Inventory Secondary Border
+    rectfill(120,89,121,89,bordercolor) -- Dice Inventory Secondary Border
     rectfill(109,5,120,88,0) -- Dice Inventory Secondary Background
-    rectfill(108,101,121,113,10) -- Dice Inventory Primary Border
-    rectfill(108,100,109,100,10) -- Dice Inventory Primary Border
-    rectfill(120,100,121,100,10) -- Dice Inventory Primary Border
+
+    rectfill(108,101,121,113,bordercolor) -- Dice Inventory Primary Border
+    rectfill(108,100,109,100,bordercolor) -- Dice Inventory Primary Border
+    rectfill(120,100,121,100,bordercolor) -- Dice Inventory Primary Border
     rectfill(109,101,120,112, 0) -- Dice Inventory Primary Background
+
+    rectfill(4,117,42,125,bordercolor) -- Textbox 1 Border
+    rectfill(5,118,41,124,0) -- Textbox 1 Background
+
+    rectfill(63,117,101,125,bordercolor) -- Textbox 2 Border
+    rectfill(64,118,100,124,0) -- Textbox 2 Background
 end
 
 function GenerateLevel()
@@ -132,10 +146,10 @@ function GenerateEnemy(amount)
         if p == 0 then
             p = 1
         end
-        if tiles[p].occopation == 0 then
+        if tiles[p].occopation == 0 and tiles[p].value != 0 then
             enemy={}
-            enemy.x = tiles[p].x
-            enemy.y = tiles[p].y
+            enemy.x = tiles[p].x + 1
+            enemy.y = tiles[p].y - 3
             enemy.sprx = 108
             enemy.spry = 0
             enemy.ypreference = true
@@ -185,6 +199,11 @@ function ConsumeDice(positiveornegative)
                 if tilevaluecount != 7 then
                     tiles[tilescount].value += consumevalue
                     debugtext = "Changing Dice Value"
+                    if consumevalue == 1 then
+                        sfx(6)
+                    elseif consumevalue == -1 then
+                        sfx(13)
+                    end
                 end
             end
             consumed = true
@@ -343,9 +362,11 @@ function GameState(z)
     end
     if enemyspawncount == enemyspawncountmax then
         GenerateEnemy(1)
+        sfx(10)
     end
     if #enemies == 0 then
         GenerateEnemy(1)
+        sfx(10)
     else
         enemyspawncount += 1
     end
@@ -355,6 +376,9 @@ function GameState(z)
         for enemytwoval in all(enemies) do
             if tiles[enemies[countz].tileindex].value <= 0 then
                 del(enemies, enemies[countz])
+                slaincount += 1
+                sfx(5)
+                sfx(11)
                 GenerateDice(true)
             else
             countz += 1
@@ -372,6 +396,9 @@ function UpdateTiles()
     for diceval in all(tileupdateindex) do
         if tiles[tileupdateindex[countj]].value != 7 then
             tiles[tileupdateindex[countj]].value -= 1
+            if tiles[tileupdateindex[countj]].value == 0 then
+                sfx(12)
+            end
         end
         countj += 1
     end
@@ -379,61 +406,68 @@ function UpdateTiles()
     if  countz == #enemies then
         countz -= 1
     end
+    if tiles[player.tileindex].value <= 0 then
+        gameover = true
+    end
+    inputlock = 0
+    turncount += 1
+    sfx(9)
     playerturn = true
 end
 
-function _update()
-    if gameover == true then
-        if btn(controls.left) or btn(controls.right) or btn(controls.up) or btn(controls.down) or btn(controls.a) or btn(controls.b) then
-            run()
+function _update60()
+    if inputlock == inputlockmax then
+        if gameover == true then
+            if btn(controls.left) or btn(controls.right) or btn(controls.up) or btn(controls.down) or btn(controls.a) or btn(controls.b) then
+                run()
+            end
         end
-    else
-        if inputdelaycount == inputdelaycountmax then
-            if playerturn == true then
-                inputdelaycount = 0
-                inputdelaycountmax = 5
-                if btn(controls.left) then
-                    if Move(0, player.tileindex).valid == true then
-                        player.y += move.y
-                        player.x += move.x
-                        player.tileindex += move.tileindex
-                        GameState(1)
-                    end
-                end
-                if btn(controls.right) then
-                    if Move(1, player.tileindex).valid == true then
-                        player.y += move.y
-                        player.x += move.x
-                        player.tileindex += move.tileindex
-                        GameState(1)
-                    end
-                end
-                if btn(controls.up) then
-                    if Move(2, player.tileindex).valid == true then
-                        player.y += move.y
-                        player.x += move.x
-                        player.tileindex += move.tileindex
-                        GameState(1)
-                    end
-                end
-                if btn(controls.down) then
-                    if Move(3, player.tileindex).valid == true then
-                        player.y += move.y
-                        player.x += move.x
-                        player.tileindex += move.tileindex
-                        GameState(1)
-                    end
-                end
-                if btn(controls.a) then
-                    ConsumeDice(1)
-                end
-                if btn(controls.b) then
-                    ConsumeDice(-1)
+        bordercolor = bordercolordefault
+        if playerturn == true then
+            if btn(controls.left) then
+                if Move(0, player.tileindex).valid == true then
+                    player.y += move.y
+                    player.x += move.x
+                    player.tileindex += move.tileindex
+                    GameState(1)
                 end
             end
-        else
-            inputdelaycount += 1
+            if btn(controls.right) then
+                if Move(1, player.tileindex).valid == true then
+                    player.y += move.y
+                    player.x += move.x
+                    player.tileindex += move.tileindex
+                    GameState(1)
+                end
+            end
+            if btn(controls.up) then
+                if Move(2, player.tileindex).valid == true then
+                    player.y += move.y
+                    player.x += move.x
+                    player.tileindex += move.tileindex
+                    GameState(1)
+                end
+            end
+            if btn(controls.down) then
+                if Move(3, player.tileindex).valid == true then
+                    player.y += move.y
+                    player.x += move.x
+                    player.tileindex += move.tileindex
+                    GameState(1)
+                end
+            end
+            if btn(controls.a) then
+                ConsumeDice(1)
+                inputlock = 0
+            end
+            if btn(controls.b) then
+                ConsumeDice(-1)
+                inputlock = 0
+            end
         end
+    else
+        inputlock += 1
+        bordercolor = 7
     end
 end
 
@@ -485,13 +519,31 @@ function _draw()
 
     sspr(player.sprtopx,player.sprtopy,12,12,player.x,player.y)
     --rectfill(tiles[player.tileindex].x, tiles[player.tileindex].y, tiles[player.tileindex].x + 11, tiles[player.tileindex].y + 11, 5)
+    if turncount > 9 then
+        turntext = "TURN:"..tostr("0")..tostr(turncount)
+    elseif turncount > 99 then
+        turntext = "TURN:"..tostr(turncount)
+    else
+        turntext = "TURN:"..tostr("00")..tostr(turncount)
+    end
+    print(turntext, 7, 119, 7)
+
+    if slaincount > 9 then
+        slaintext = "SLAIN:"..tostr(0)..tostr(slaincount)
+    elseif slaincount > 99 then
+        slaintext = "SLAIN:"..tostr(slaincount)
+    else
+        slaintext = "SLAIN:"..tostr("00")..tostr(slaincount)
+    end
+    print(slaintext, 65, 119, 7)
+
 
     if gameover then
+        music(-1)
+        sfx(8)
         debugtext = ""
         rectfill(0,0,128,128,8)
         print("GAME", 54, 48,7)
         print("OVER", 54, 56, 7)
     end
-
-    print(debugtext, 40, 100, 11)
 end
