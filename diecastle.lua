@@ -7,6 +7,9 @@ function _init()
     controls.a = 4
     controls.b = 5
 
+    tilerowcount = 7
+    tilecolumncount = 8
+
     move={}
     move.x = 0
     move.y = 0
@@ -16,9 +19,9 @@ function _init()
     debugtext = ""
 
     diceprimaryx = 109
-    diceprimaryy = 107
+    diceprimaryy = 101
     dicesecondaryx = 109
-    dicesecondaryy = 89
+    dicesecondaryy = 77
 
     enemyspawncount = 0
     enemyspawncountmax = 5
@@ -38,14 +41,6 @@ end
 function StartGame()
     GenerateBackground()
     GenerateLevel()
-    r = 1
-    for edgeval in all(tiles) do
-        if edgeval.x > 14 and edgeval.y > 14 then
-            if edgeval.x < 86 and edgeval.y < 110 then
-                edgeval.edge = false
-            end
-        end
-    end
 
     player={}
     player.x = 42
@@ -84,16 +79,16 @@ function GenerateBackground()
         end
     end
     
-    rectfill(4,4,101,125,10) -- Level Yellow Border
-    rectfill(5,5,100,124,0) -- Level Background
-    rectfill(108,4,121,100,10) -- Dice Inventory Secondary Border
-    rectfill(108,101,109,101,10) -- Dice Inventory Secondary Border
-    rectfill(120,101,121,101,10) -- Dice Inventory Secondary Border
-    rectfill(109,5,120,100,0) -- Dice Inventory Secondary Background
-    rectfill(108,107,121,119,10) -- Dice Inventory Primary Border
-    rectfill(108,106,109,106,10) -- Dice Inventory Primary Border
-    rectfill(120,106,121,106,10) -- Dice Inventory Primary Border
-    rectfill(109,107,120,118, 0) -- Dice Inventory Primary Background
+    rectfill(4,4,101,113,10) -- Level Yellow Border
+    rectfill(5,5,100,112,0) -- Level Background
+    rectfill(108,4,121,88,10) -- Dice Inventory Secondary Border
+    rectfill(108,89,109,89,10) -- Dice Inventory Secondary Border
+    rectfill(120,89,121,89,10) -- Dice Inventory Secondary Border
+    rectfill(109,5,120,88,0) -- Dice Inventory Secondary Background
+    rectfill(108,101,121,113,10) -- Dice Inventory Primary Border
+    rectfill(108,100,109,100,10) -- Dice Inventory Primary Border
+    rectfill(120,100,121,100,10) -- Dice Inventory Primary Border
+    rectfill(109,101,120,112, 0) -- Dice Inventory Primary Background
 end
 
 function GenerateLevel()
@@ -102,8 +97,8 @@ function GenerateLevel()
     lvlsprx = 0
     lvlspry = 0
     
-    for j=0, 9 do
-        for i=0, 7 do
+    for j=0, tilecolumncount do
+        for i=0, tilerowcount do
             add(tiles, GenerateTile(5 + (i * 12), 5 + (j * 12)))
         end
     end
@@ -116,7 +111,6 @@ function GenerateTile(x,y)
     tile.value = flr(rnd(3)) + flr(rnd(3)) + flr(rnd(2)) + 1
     tile.sprite = tile.value
     tile.occopation = 0
-    tile.edge = true
     if tile.value == 1 or 2 or 3 then
         if flr(rnd(2)) == 1 then
             tile.value += 1
@@ -444,17 +438,16 @@ function Move(movedirection, movetileindex)
     move.x = 0
     move.tileindex = 0
     move.valid = true
-    --Hardcoded values based off the x,y of the first tile and the last tile.
-        if movedirection == 0 and tiles[movetileindex].x != 5 then -- Left
+        if movedirection == 0 and tiles[movetileindex].x != tiles[1].x then -- Left
             move.x = -12
             move.tileindex = -1
-        elseif movedirection == 1 and tiles[movetileindex].x != 89 then -- Right
+        elseif movedirection == 1 and tiles[movetileindex].x != tiles[#tiles].x then -- Right
             move.x = 12
             move.tileindex = 1
-        elseif movedirection == 2 and tiles[movetileindex].y != 5 then -- Up
+        elseif movedirection == 2 and tiles[movetileindex].y != tiles[1].x then -- Up
             move.y = -12
             move.tileindex = -8
-        elseif movedirection == 3 and tiles[movetileindex].y != 113 then --Down
+        elseif movedirection == 3 and tiles[movetileindex].y != tiles[#tiles].y then --Down
             move.y = 12
             move.tileindex = 8
         else
@@ -472,10 +465,6 @@ function _draw()
     for drawval in all(tiles) do
         sspr((tiles[counti].value * 12), 0, 12, 12, tiles[counti].x, tiles[counti].y)
         counti += 1
-    
-        if drawval.edge == true then
-            --rectfill(drawval.x + 5, drawval.y + 5, drawval.x + 7, drawval.y + 7, 12)
-        end
     end
 
     counth = 1
