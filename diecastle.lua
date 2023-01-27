@@ -10,6 +10,8 @@ function _init()
     tilerowcount = 7
     tilecolumncount = 8
 
+    tilerespawncountmax = 5
+
     move={}
     move.x = 0
     move.y = 0
@@ -39,6 +41,7 @@ function _init()
     tileupdateindex={}
 
     gameover = false
+    gameoversoundcheck = false
 
     StartGame()
 end
@@ -48,6 +51,9 @@ function StartGame()
     GenerateLevel()
 
     music(0)
+
+    newturnrunning = false
+
     player={}
     player.x = 42
     player.y = 50
@@ -56,22 +62,12 @@ function StartGame()
     player.sprbotx = 94
     player.sprboty = 11
     player.tileindex = 36
+
     tiles[player.tileindex].occopation = 1
-    playerturn = true
 
     enemies={}
 
     GenerateEnemy(1)
-    --GenerateDice(false, 5)
-    --GenerateDice(false, 4)
-    --GenerateDice(false, 1)
-    --GenerateDice(false, 3)
-    --GenerateDice(false, 6)
-    --GenerateDice(false, 1)
-    --GenerateDice(false, 1)
-    --GenerateDice(false, 1)
-    --GenerateDice(false, 1)
-    --GenerateDice(false, 1)
 end
 
 function GenerateBackground()
@@ -122,18 +118,28 @@ function GenerateTile(x,y)
     tile={}
     tile.x = x
     tile.y = y
-    tile.value = flr(rnd(3)) + flr(rnd(3)) + flr(rnd(2)) + 1
+    tile.value = TileValueRoll()
     tile.sprite = tile.value
     tile.occopation = 0
+    tile.respawncount = 0
+
+    --If a tile is a lower value we roll a 50-50 chance of raising it's value, this is a balance choice to generally create higher value tiles
     if tile.value == 1 or 2 or 3 then
         if flr(rnd(2)) == 1 then
             tile.value += 1
         end
     end
+
     return(tile)
     
 end
-    
+
+function TileValueRoll()
+    value = flr(rnd(3)) + flr(rnd(3)) + flr(rnd(2)) + 1
+    return(value)
+end
+
+--Unused as I prefer destroyed tiles to just be a type of tile rather than being nonexistent. this way the tiles array is always consistent with the board.
 function DestroyTile(x)
     rectfill(tiles[x].x,tiles[x].y,tiles[x].x + 11, tiles[x].y + 11)
     del(tiles, tiles[x])
@@ -160,7 +166,7 @@ function GenerateEnemy(amount)
 end
 
 function GenerateDice(random, notrandomvalue)
-    if #diceinventory < 9 then
+    if #diceinventory < 8 then
         dice={}
         dice.x = 0
         dice.y = 0
@@ -224,142 +230,190 @@ function ConsumeDice(positiveornegative)
                 diceinventory[1].y = diceprimaryy
             end
         end
+    else
+        sfx(14)
     end
 end
 
-function GameState(z)
-    playerturn = false
+function NewTurn()
+    newturnrunning = true
+
     UpdateTiles()
+
+    if tiles[player.tileindex].value <= 0 then
+        gameover = true
+    end
 
     for tilei in all(tileupdateindex) do
         del(tileupdateindex, tilei)
     end
+
     add(tileupdateindex, player.tileindex)
-    --Enemy Turn
-    running = running
-    print(running)
-    if z == 1 then
-        if #enemies > 0 then
-            for enemyval in all(enemies) do
-                dirup = false
-                dirdown = false
-                dirleft = false
-                dirright = false
 
-                --If Player is to the right of the enemy
-                if tiles[player.tileindex].x > tiles[enemyval.tileindex].x then
-                    dirright = true
-                end
-                --If Player is to the left of the enemy
-                if tiles[player.tileindex].x < tiles[enemyval.tileindex].x then
-                    dirleft = true
-                end
-                --If Player is below the enemy
-                if tiles[player.tileindex].y > tiles[enemyval.tileindex].y then
-                    dirdown = true
-                end
-                --If Player is above the enemy
-                if tiles[player.tileindex].y < tiles[enemyval.tileindex].y then
-                    dirup = true
-                end
+    UpdateEnemies()
+end
 
-                if dirup == true then
-                    if dirleft == true then
-                        if enemyval.ypreference == true then
-                            if Move(2, enemyval.tileindex).valid == true then
-                                enemyval.x += move.x
-                                enemyval.y += move.y
-                                enemyval.tileindex += move.tileindex
-                            end
-                        else
-                            if Move(0, enemyval.tileindex).valid == true then
-                                enemyval.x += move.x
-                                enemyval.y += move.y
-                                enemyval.tileindex += move.tileindex
-                            end
-                        end
+function UpdateTiles()
+    countj = 1
 
-                    elseif dirright == true then
-                        if enemyval.ypreference == true then
-                            if Move(2, enemyval.tileindex).valid == true then
-                                enemyval.x += move.x
-                                enemyval.y += move.y
-                                enemyval.tileindex += move.tileindex
-                            end
-                        else
-                            if Move(1, enemyval.tileindex).valid == true then
-                                enemyval.x += move.x
-                                enemyval.y += move.y
-                                enemyval.tileindex += move.tileindex
-                            end
-                        end
+    for diceval in all(tileupdateindex) do
+        if tiles[tileupdateindex[countj]].value != 7 then
+            tiles[tileupdateindex[countj]].value -= 1
+            if tiles[tileupdateindex[countj]].value == 0 then
+                sfx(12)
+            end
+        end
+        countj += 1
+    end
 
-                    else
+    countk = 1
+    for diceval2 in all(tiles) do
+        if diceval2.value < 0 then
+            diceval2.value = 0
+        end
+        if diceval2.value == 0 then
+            if diceval2.respawncount == tilerespawncountmax then
+                diceval2.value = TileValueRoll()
+                sfx(15)
+                diceval2.respawncount = 0
+            else
+                diceval2.respawncount += 1
+            end
+        end
+    end
+        
+
+    if tiles[player.tileindex].value <= 0 then
+        gameover = true
+    end
+    inputlock = 0
+    turncount += 1
+    sfx(9)
+    newturnrunning = false
+end
+
+function UpdateEnemies()
+    if #enemies > 0 then
+        for enemyval in all(enemies) do
+            dirup = false
+            dirdown = false
+            dirleft = false
+            dirright = false
+
+            --If Player is to the right of the enemy
+            if tiles[player.tileindex].x > tiles[enemyval.tileindex].x then
+                dirright = true
+            end
+            --If Player is to the left of the enemy
+            if tiles[player.tileindex].x < tiles[enemyval.tileindex].x then
+                dirleft = true
+            end
+            --If Player is below the enemy
+            if tiles[player.tileindex].y > tiles[enemyval.tileindex].y then
+                dirdown = true
+            end
+            --If Player is above the enemy
+            if tiles[player.tileindex].y < tiles[enemyval.tileindex].y then
+                dirup = true
+            end
+
+            if dirup == true then
+                if dirleft == true then
+                    if enemyval.ypreference == true then
                         if Move(2, enemyval.tileindex).valid == true then
                             enemyval.x += move.x
                             enemyval.y += move.y
                             enemyval.tileindex += move.tileindex
                         end
-                    end
-
-                elseif dirdown == true then
-                    if dirleft == true then
-                        if enemyval.ypreference == true then
-                            if Move(3, enemyval.tileindex).valid == true then
-                                enemyval.x += move.x
-                                enemyval.y += move.y
-                                enemyval.tileindex += move.tileindex
-                            end
-                        else
-                            if Move(0, enemyval.tileindex).valid == true then
-                                enemyval.x += move.x
-                                enemyval.y += move.y
-                                enemyval.tileindex += move.tileindex
-                            end
-                        end
-                    elseif dirright == true then
-                        if enemyval.ypreference == true then
-                            if Move(3, enemyval.tileindex).valid == true then
-                                enemyval.x += move.x
-                                enemyval.y += move.y
-                                enemyval.tileindex += move.tileindex
-                            end
-                        else
-                            if Move(1, enemyval.tileindex).valid == true then
-                                enemyval.x += move.x
-                                enemyval.y += move.y
-                                enemyval.tileindex += move.tileindex
-                            end
-                        end
                     else
-                        if Move(3, enemyval.tileindex).valid == true then
+                        if Move(0, enemyval.tileindex).valid == true then
                             enemyval.x += move.x
                             enemyval.y += move.y
                             enemyval.tileindex += move.tileindex
                         end
                     end
-                elseif dirleft == true then
-                    if Move(0, enemyval.tileindex).valid == true then
+
+                elseif dirright == true then
+                    if enemyval.ypreference == true then
+                        if Move(2, enemyval.tileindex).valid == true then
+                            enemyval.x += move.x
+                            enemyval.y += move.y
+                            enemyval.tileindex += move.tileindex
+                        end
+                    else
+                        if Move(1, enemyval.tileindex).valid == true then
+                            enemyval.x += move.x
+                            enemyval.y += move.y
+                            enemyval.tileindex += move.tileindex
+                        end
+                    end
+
+                else
+                    if Move(2, enemyval.tileindex).valid == true then
                         enemyval.x += move.x
                         enemyval.y += move.y
                         enemyval.tileindex += move.tileindex
+                    end
+                end
+
+            elseif dirdown == true then
+                if dirleft == true then
+                    if enemyval.ypreference == true then
+                        if Move(3, enemyval.tileindex).valid == true then
+                            enemyval.x += move.x
+                            enemyval.y += move.y
+                            enemyval.tileindex += move.tileindex
+                        end
+                    else
+                        if Move(0, enemyval.tileindex).valid == true then
+                            enemyval.x += move.x
+                            enemyval.y += move.y
+                            enemyval.tileindex += move.tileindex
+                        end
                     end
                 elseif dirright == true then
-                    if Move(1, enemyval.tileindex).valid == true then
+                    if enemyval.ypreference == true then
+                        if Move(3, enemyval.tileindex).valid == true then
+                            enemyval.x += move.x
+                            enemyval.y += move.y
+                            enemyval.tileindex += move.tileindex
+                        end
+                    else
+                        if Move(1, enemyval.tileindex).valid == true then
+                            enemyval.x += move.x
+                            enemyval.y += move.y
+                            enemyval.tileindex += move.tileindex
+                        end
+                    end
+                else
+                    if Move(3, enemyval.tileindex).valid == true then
                         enemyval.x += move.x
                         enemyval.y += move.y
                         enemyval.tileindex += move.tileindex
                     end
                 end
-
-                if enemyval.tileindex == player.tileindex then
-                    gameover = true
+            elseif dirleft == true then
+                if Move(0, enemyval.tileindex).valid == true then
+                    enemyval.x += move.x
+                    enemyval.y += move.y
+                    enemyval.tileindex += move.tileindex
                 end
-
-                add(tileupdateindex, enemyval.tileindex)
+            elseif dirright == true then
+                if Move(1, enemyval.tileindex).valid == true then
+                    enemyval.x += move.x
+                    enemyval.y += move.y
+                    enemyval.tileindex += move.tileindex
+                end
             end
+
+            if enemyval.tileindex == player.tileindex then
+                gameover = true
+            end
+
+            add(tileupdateindex, enemyval.tileindex)
         end
     end
+
     if enemyspawncount == enemyspawncountmax then
         GenerateEnemy(1)
         sfx(10)
@@ -372,6 +426,11 @@ function GameState(z)
     end
 
     countz = 1
+
+    --if  countz == #enemies then
+        --countz -= 1
+    --end
+
     if #enemies != 0 then
         for enemytwoval in all(enemies) do
             if tiles[enemies[countz].tileindex].value <= 0 then
@@ -385,34 +444,6 @@ function GameState(z)
             end
         end
     end
-
-    if tiles[player.tileindex].value <= 0 then
-        gameover = true
-    end
-end
-
-function UpdateTiles()
-    countj = 1
-    for diceval in all(tileupdateindex) do
-        if tiles[tileupdateindex[countj]].value != 7 then
-            tiles[tileupdateindex[countj]].value -= 1
-            if tiles[tileupdateindex[countj]].value == 0 then
-                sfx(12)
-            end
-        end
-        countj += 1
-    end
-
-    if  countz == #enemies then
-        countz -= 1
-    end
-    if tiles[player.tileindex].value <= 0 then
-        gameover = true
-    end
-    inputlock = 0
-    turncount += 1
-    sfx(9)
-    playerturn = true
 end
 
 function _update60()
@@ -423,13 +454,13 @@ function _update60()
             end
         end
         bordercolor = bordercolordefault
-        if playerturn == true then
+        if newturnrunning == false then
             if btn(controls.left) then
                 if Move(0, player.tileindex).valid == true then
                     player.y += move.y
                     player.x += move.x
                     player.tileindex += move.tileindex
-                    GameState(1)
+                    NewTurn()
                 end
             end
             if btn(controls.right) then
@@ -437,7 +468,7 @@ function _update60()
                     player.y += move.y
                     player.x += move.x
                     player.tileindex += move.tileindex
-                    GameState(1)
+                    NewTurn()
                 end
             end
             if btn(controls.up) then
@@ -445,7 +476,7 @@ function _update60()
                     player.y += move.y
                     player.x += move.x
                     player.tileindex += move.tileindex
-                    GameState(1)
+                    NewTurn()
                 end
             end
             if btn(controls.down) then
@@ -453,7 +484,7 @@ function _update60()
                     player.y += move.y
                     player.x += move.x
                     player.tileindex += move.tileindex
-                    GameState(1)
+                    NewTurn()
                 end
             end
             if btn(controls.a) then
@@ -539,8 +570,11 @@ function _draw()
 
 
     if gameover then
+        if gameoversoundcheck == false then
+            sfx(8)
+            gameoversoundcheck = true
+        end
         music(-1)
-        sfx(8)
         debugtext = ""
         rectfill(0,0,128,128,8)
         print("GAME", 54, 48,7)
