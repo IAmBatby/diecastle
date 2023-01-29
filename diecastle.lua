@@ -12,7 +12,6 @@ function _init()
 
     setabletilerespawncountmax = 15
     tilerespawncountmax = 15
-    
 
     move={}
     move.x = 0
@@ -65,13 +64,15 @@ function StartGame()
     newturnrunning = false
 
     player={}
-    player.x = 42
-    player.y = 50
-    player.sprtopx = 85
-    player.sprtopy = 0
-    player.sprbotx = 94
-    player.sprboty = 11
     player.tileindex = 36
+    player.x = tiles[player.tileindex].x
+    player.y = tiles[player.tileindex].y
+    player.offsetx = 1
+    player.offsety = -2
+    player.lerpx = player.x
+    player.lerpy = player.y
+    player.sprx = 85
+    player.spry = 0
     add(tileupdateindex, player.tileindex)
 
     tiles[player.tileindex].occopation = 1
@@ -93,7 +94,6 @@ function StartGame()
 end
 
 function _update60()
-
     if inputlock == inputlockmax then
         if gameover == true then
             if btn(controls.left) or btn(controls.right) or btn(controls.up) or btn(controls.down) or btn(controls.a) or btn(controls.b) then
@@ -116,42 +116,81 @@ function _update60()
     else
         inputlock += 1
         bordercolor = 7
+        if titlescreen == false then
+            player.x = lerp(player.x,player.lerpx,0.5)
+            player.y = lerp(player.y,player.lerpy,0.5)
+            for enemy in all(enemies) do
+
+                enemy.x = lerp(enemy.x, enemy.lerpx, 0.5)
+                enemy.y = lerp(enemy.y, enemy.lerpy, 0.5)
+            end
+            for tile in all(tiles) do
+                if tile.value > 0 then
+                    tile.lerpup = flr(lerp(tile.lerpup, 0, 0.05))
+                else
+                    tile.lerpdown = flr(lerp(tile.lerpdown, 0, 0.05))
+                end
+            end
+        end
     end
 end
 
+function MoveCheck(movedirection, movetileindex)
+    move.y = 0
+    move.x = 0
+    move.tileindex = 0
+    move.valid = true
+        if movedirection == 0 and tiles[movetileindex].x != tiles[1].x then -- Left
+            move.x = -12
+            move.tileindex = -1
+        elseif movedirection == 1 and tiles[movetileindex].x != tiles[#tiles].x then -- Right
+            move.x = 12
+            move.tileindex = 1
+        elseif movedirection == 2 and tiles[movetileindex].y != tiles[1].x then -- Up
+            move.y = -12
+            move.tileindex = -8
+        elseif movedirection == 3 and tiles[movetileindex].y != tiles[#tiles].y then --Down
+            move.y = 12
+            move.tileindex = 8
+        else
+            move.valid = false
+        end
+        if move.valid then
+            return(move)
+        else
+            move={}
+            move.x = 0
+            move.y = 0
+            move.tileindex = 0
+            move.valid = true
+            return(move)
+        end
+end
+
+function Move(move)
+    player.lerpx += move.x
+    player.lerpy += move.y
+    player.tileindex += move.tileindex
+    if btn(0) then
+        playerflip = false
+    elseif btn(1) then
+        playerflip = true
+    end
+end
+
+function MoveEnemy(move, enemy)
+    enemy.lerpy += move.y 
+    enemy.lerpx += move.x
+    enemy.tileindex += move.tileindex
+end
+
 function UpdatePlayer()
-    if btn(controls.left) then
-        if Move(0, player.tileindex).valid == true then
-            player.y += move.y
-            player.x += move.x
-            player.tileindex += move.tileindex
-            playerflip = false
-            NewTurn()
-        end
-    end
-    if btn(controls.right) then
-        if Move(1, player.tileindex).valid == true then
-            player.y += move.y
-            player.x += move.x
-            player.tileindex += move.tileindex
-            playerflip = true
-            NewTurn()
-        end
-    end
-    if btn(controls.up) then
-        if Move(2, player.tileindex).valid == true then
-            player.y += move.y
-            player.x += move.x
-            player.tileindex += move.tileindex
-            NewTurn()
-        end
-    end
-    if btn(controls.down) then
-        if Move(3, player.tileindex).valid == true then
-            player.y += move.y
-            player.x += move.x
-            player.tileindex += move.tileindex
-            NewTurn()
+    for i=0,3 do
+        if btn(i) then
+            if MoveCheck(i, player.tileindex).valid == true then
+                Move(move, true)
+                NewTurn()
+            end
         end
     end
     if btn(controls.a) then
@@ -178,11 +217,14 @@ function NewTurn()
 
     add(tileupdateindex, player.tileindex)
 
-    enemyspawncountmax = flr(setableenemyspawncountmax - (turncount / 2))
+    enemyspawncountmax = flr(setableenemyspawncountmax - (turncount / 5))
     if enemyspawncountmax < 1 then
         enemyspawncountmax = 1
     end
-    tilerespawncountmax = flr(setabletilerespawncountmax + (turncount / 5))
+    tilerespawncountmax = flr(setabletilerespawncountmax + (turncount / 3))
+    if tilerespawncountmax > 50 then
+        tilerespawncountmax = 25
+    end
 
     UpdateEnemies()
 end
@@ -198,6 +240,8 @@ function UpdateTiles()
         if tiles[tileupdateindex[i]].value != 7 and tiles[tileupdateindex[i]].value != 0 and tiles[tileupdateindex[i]].valueupdatedthisturn == 1 then
             tiles[tileupdateindex[i]].value -= 1
             if tiles[tileupdateindex[i]].value == 0 then
+                tiles[tileupdateindex[i]].lerpup = 12
+                tiles[tileupdateindex[i]].lerpup = 12
                 sfx(12)
             end
             tiles[tileupdateindex[i]].valueupdatedthisturn = 3
@@ -251,94 +295,44 @@ function UpdateEnemies()
             if tiles[player.tileindex].y < tiles[enemyval.tileindex].y then
                 dirup = true
             end
-
-            if dirup == true then
-                if dirleft == true then
-                    if enemyval.ypreference == true then
-                        if Move(2, enemyval.tileindex).valid == true then
-                            enemyval.x += move.x
-                            enemyval.y += move.y
-                            enemyval.tileindex += move.tileindex
-                        end
+            
+            if dirup then
+                if dirleft then
+                    if enemyval.ypreference then
+                        if MoveCheck(2, enemyval.tileindex).valid then MoveEnemy(move, enemyval) end
                     else
-                        if Move(0, enemyval.tileindex).valid == true then
-                            enemyval.x += move.x
-                            enemyval.y += move.y
-                            enemyval.tileindex += move.tileindex
-                        end
+                        if MoveCheck(0, enemyval.tileindex).valid then MoveEnemy(move, enemyval) end
                     end
-
-                elseif dirright == true then
-                    if enemyval.ypreference == true then
-                        if Move(2, enemyval.tileindex).valid == true then
-                            enemyval.x += move.x
-                            enemyval.y += move.y
-                            enemyval.tileindex += move.tileindex
-                        end
+                elseif dirright then
+                    if enemyval.ypreference then
+                        if MoveCheck(2, enemyval.tileindex).valid then MoveEnemy(move, enemyval) end
                     else
-                        if Move(1, enemyval.tileindex).valid == true then
-                            enemyval.x += move.x
-                            enemyval.y += move.y
-                            enemyval.tileindex += move.tileindex
-                        end
+                        if MoveCheck(1, enemyval.tileindex).valid then MoveEnemy(move, enemyval) end
                     end
 
                 else
-                    if Move(2, enemyval.tileindex).valid == true then
-                        enemyval.x += move.x
-                        enemyval.y += move.y
-                        enemyval.tileindex += move.tileindex
-                    end
+                    if MoveCheck(2, enemyval.tileindex).valid then MoveEnemy(move, enemyval) end
                 end
-
-            elseif dirdown == true then
-                if dirleft == true then
-                    if enemyval.ypreference == true then
-                        if Move(3, enemyval.tileindex).valid == true then
-                            enemyval.x += move.x
-                            enemyval.y += move.y
-                            enemyval.tileindex += move.tileindex
-                        end
+            elseif dirdown then
+                if dirleft then
+                    if enemyval.ypreference then
+                        if MoveCheck(3, enemyval.tileindex).valid then MoveEnemy(move, enemyval) end
                     else
-                        if Move(0, enemyval.tileindex).valid == true then
-                            enemyval.x += move.x
-                            enemyval.y += move.y
-                            enemyval.tileindex += move.tileindex
-                        end
+                        if MoveCheck(0, enemyval.tileindex).valid then MoveEnemy(move, enemyval) end
                     end
-                elseif dirright == true then
-                    if enemyval.ypreference == true then
-                        if Move(3, enemyval.tileindex).valid == true then
-                            enemyval.x += move.x
-                            enemyval.y += move.y
-                            enemyval.tileindex += move.tileindex
-                        end
+                elseif dirright then
+                    if enemyval.ypreference then
+                        if MoveCheck(3, enemyval.tileindex).valid then MoveEnemy(move, enemyval) end
                     else
-                        if Move(1, enemyval.tileindex).valid == true then
-                            enemyval.x += move.x
-                            enemyval.y += move.y
-                            enemyval.tileindex += move.tileindex
-                        end
+                        if MoveCheck(1, enemyval.tileindex).valid then MoveEnemy(move, enemyval) end
                     end
                 else
-                    if Move(3, enemyval.tileindex).valid == true then
-                        enemyval.x += move.x
-                        enemyval.y += move.y
-                        enemyval.tileindex += move.tileindex
-                    end
+                    if MoveCheck(3, enemyval.tileindex).valid then MoveEnemy(move, enemyval) end
                 end
-            elseif dirleft == true then
-                if Move(0, enemyval.tileindex).valid == true then
-                    enemyval.x += move.x
-                    enemyval.y += move.y
-                    enemyval.tileindex += move.tileindex
-                end
-            elseif dirright == true then
-                if Move(1, enemyval.tileindex).valid == true then
-                    enemyval.x += move.x
-                    enemyval.y += move.y
-                    enemyval.tileindex += move.tileindex
-                end
+            elseif dirleft then
+                if MoveCheck(0, enemyval.tileindex).valid then MoveEnemy(move, enemyval) end
+            elseif dirright then
+                if MoveCheck(1, enemyval.tileindex).valid then MoveEnemy(move, enemyval) end
             end
 
             if enemyval.tileindex == player.tileindex then
@@ -349,12 +343,12 @@ function UpdateEnemies()
         end
     end
 
-    if enemyspawncount == enemyspawncountmax then
-        --GenerateEnemy(1)
+    if enemyspawncount >= enemyspawncountmax then
+        GenerateEnemy(1)
         enemyspawncount = 0
     end
     if #enemies == 0 then
-        --GenerateEnemy(1)
+        GenerateEnemy(1)
     else
         enemyspawncount += 1
     end
@@ -378,30 +372,6 @@ function UpdateEnemies()
             end
         end
     end
-end
-
-function Move(movedirection, movetileindex)
-    move.y = 0
-    move.x = 0
-    move.tileindex = 0
-    move.valid = true
-        if movedirection == 0 and tiles[movetileindex].x != tiles[1].x then -- Left
-            move.x = -12
-            move.tileindex = -1
-        elseif movedirection == 1 and tiles[movetileindex].x != tiles[#tiles].x then -- Right
-            move.x = 12
-            move.tileindex = 1
-        elseif movedirection == 2 and tiles[movetileindex].y != tiles[1].x then -- Up
-            move.y = -12
-            move.tileindex = -8
-        elseif movedirection == 3 and tiles[movetileindex].y != tiles[#tiles].y then --Down
-            move.y = 12
-            move.tileindex = 8
-        else
-            move.valid = false
-        end
-
-    return(move)
 end
 
 function GenerateBackground()
@@ -450,6 +420,8 @@ function GenerateTile(x,y)
     tile={}
     tile.x = x
     tile.y = y
+    tile.lerpup = 12
+    tile.lerpdown = 12
     tile.value = TileValueRoll()
     tile.sprite = tile.value
     tile.occopation = 0
@@ -494,13 +466,19 @@ function GenerateEnemy(amount)
             end
         end
         enemy={}
-        enemy.x = tiles[randomnumber].x + 1
-        enemy.y = tiles[randomnumber].y - 3
+        enemy.x = tiles[randomnumber].x
+        enemy.y = tiles[randomnumber].y
+        enemy.lerpx = enemy.x
+        enemy.lerpy = enemy.y
         if flr(rnd(2)) == 1 then
+            enemy.offsetx = 1
+            enemy.offsety = -2
             enemy.sprx = 97
             enemy.spry = 0
             enemy.ypreference = true
         else
+            enemy.offsetx = 1
+            enemy.offsety = 2
             enemy.sprx = 97
             enemy.spry = 12
             enemy.ypreference = false
@@ -595,6 +573,13 @@ function ConsumeDice(consumevalue)
     end
 end
 
+function _update()
+   
+end
+function lerp(a, b, t)
+	return a + (b - a) * t
+end
+
 function _draw()
     cls()
     if titlescreen == false then
@@ -617,37 +602,45 @@ function _draw()
         end
         GenerateBackground()
 
+        --TILES
         for drawval in all(tiles) do
-            if drawval.value != 0 then
-                sspr(72, 0, 12, 12, drawval.x, drawval.y)
+            if drawval.value == 0 then
+                sspr(72, 0, 12, 12, drawval.x + (drawval.lerpdown / 2) + 5, drawval.y + (drawval.lerpdown / 2) + 5,drawval.lerpdown,drawval.lerpdown)
                 sspr((drawval.value * 12), drawval.valueupdatedthisturn * 12, 12, 12, drawval.x, drawval.y)
             else
-                sspr(72, 12, 0, 12, 12, drawval.x, drawval.y)
+                if drawval.lerpup == 0 then
+                sspr(72, 0, 12, 12, drawval.x, drawval.y,12 - drawval.lerpup,12 - drawval.lerpup)
+                sspr((drawval.value * 12), drawval.valueupdatedthisturn * 12, 12, 12, drawval.x, drawval.y)
+                else
+                    sspr(72, 0, 12, 12, drawval.x +(drawval.lerpup / 2) + 5, drawval.y + (drawval.lerpup / 2) + 5,12 - drawval.lerpup,12 - drawval.lerpup)
+                    --sspr((drawval.value * 12), drawval.valueupdatedthisturn * 12, 12, 12, drawval.x, drawval.y)
+                end
             end
         end
 
-        --for drawedgeval in all(tileedgeindex) do
-            --rectfill(drawedgeval.x + 5, drawedgeval.y + 5, drawedgeval.x + 7, drawedgeval.y + 7, 12)
-        --end
-
+        --ENEMIES
         for enemiesval in all(enemies) do
             if enemiesval.x < player.x then
-                sspr(enemiesval.sprx - 2, enemiesval.spry, 12, 12, enemiesval.x, enemiesval.y, 12, 12, true)
+                sspr(enemiesval.sprx - 2, enemiesval.spry, 12, 12, enemiesval.x + enemiesval.offsetx, enemiesval.y + enemiesval.offsety, 12, 12, true)
             else
-                sspr(enemiesval.sprx, enemiesval.spry, 12, 12, enemiesval.x, enemiesval.y)
+                sspr(enemiesval.sprx, enemiesval.spry, 12, 12, enemiesval.x + enemiesval.offsetx, enemiesval.y + enemiesval.offsety)
             end
         end
 
+        --DICE INVENTORY
         for diceinventoryval in all(diceinventory) do
             sspr( 72, 0, 12, 12, diceinventoryval.x, diceinventoryval.y)
             sspr(diceinventoryval.value * 12, 12, 12,12, diceinventoryval.x, diceinventoryval.y)
         end
+
+        --PLAYER
         if playerflip == true then
-            sspr(player.sprtopx,player.sprtopy,12,12,player.x - 2,player.y, 12, 12,playerflip)
+            sspr(player.sprx,player.spry,12,12,(player.x + player.offsetx) - 1,player.y + player.offsety, 12, 12,playerflip)
         else
-            sspr(player.sprtopx,player.sprtopy,12,12,player.x,player.y, 12, 12,playerflip)
+            sspr(player.sprx,player.spry,12,12,player.x + player.offsetx,player.y + player.offsety, 12, 12,playerflip)
         end
-        --rectfill(tiles[player.tileindex].x, tiles[player.tileindex].y, tiles[player.tileindex].x + 11, tiles[player.tileindex].y + 11, 5)
+
+        --TEXT
         if turncount > 99 then
             turntext = "TURN:"..tostr(turncount)
         elseif turncount > 9 then
