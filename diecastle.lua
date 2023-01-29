@@ -10,7 +10,9 @@ function _init()
     tilerowcount = 7
     tilecolumncount = 8
 
-    tilerespawncountmax = 16
+    setabletilerespawncountmax = 15
+    tilerespawncountmax = 15
+    
 
     move={}
     move.x = 0
@@ -20,6 +22,7 @@ function _init()
 
     debugtext = ""
 
+    playerflip = false
     turncount = 0
     slaincount = 0
 
@@ -35,7 +38,8 @@ function _init()
     inputlock = inputlockmax
 
     enemyspawncount = 0
-    enemyspawncountmax = 5
+    setableenemyspawncountmax = 20
+    enemyspawncountmax = 0
 
     diceinventory={}
     tileupdateindex={}
@@ -43,13 +47,19 @@ function _init()
     gameover = false
     gameoversoundcheck = false
 
-    StartGame()
+    titlescreen = true
+
+    drawcount = 0
+    music(-1)
+    music(1)
+    --StartGame()
 end
         
 function StartGame()
+    tiles={}
     GenerateBackground()
     GenerateLevel()
-
+    music(-1)
     music(0)
 
     newturnrunning = false
@@ -57,7 +67,7 @@ function StartGame()
     player={}
     player.x = 42
     player.y = 50
-    player.sprtopx = 96
+    player.sprtopx = 85
     player.sprtopy = 0
     player.sprbotx = 94
     player.sprboty = 11
@@ -83,15 +93,25 @@ function StartGame()
 end
 
 function _update60()
+
     if inputlock == inputlockmax then
         if gameover == true then
             if btn(controls.left) or btn(controls.right) or btn(controls.up) or btn(controls.down) or btn(controls.a) or btn(controls.b) then
+                gameover = false
                 run()
             end
         end
         bordercolor = bordercolordefault
         if newturnrunning == false then
            UpdatePlayer()
+        end
+        if titlescreen == true then
+            if btn(controls.left) or btn(controls.right) or btn(controls.up) or btn(controls.down) or btn(controls.a) or btn(controls.b) then
+                titlescreen = false
+                music(-1)
+                inputlock = 0
+                StartGame()
+            end
         end
     else
         inputlock += 1
@@ -105,6 +125,7 @@ function UpdatePlayer()
             player.y += move.y
             player.x += move.x
             player.tileindex += move.tileindex
+            playerflip = false
             NewTurn()
         end
     end
@@ -113,6 +134,7 @@ function UpdatePlayer()
             player.y += move.y
             player.x += move.x
             player.tileindex += move.tileindex
+            playerflip = true
             NewTurn()
         end
     end
@@ -156,6 +178,12 @@ function NewTurn()
 
     add(tileupdateindex, player.tileindex)
 
+    enemyspawncountmax = flr(setableenemyspawncountmax - (turncount / 2))
+    if enemyspawncountmax < 1 then
+        enemyspawncountmax = 1
+    end
+    tilerespawncountmax = flr(setabletilerespawncountmax + (turncount / 5))
+
     UpdateEnemies()
 end
 
@@ -188,8 +216,7 @@ function UpdateTiles()
                 diceval2.respawncount += 1
             end
         end
-    end
-        
+    end      
 
     if tiles[player.tileindex].value <= 0 then
         gameover = true
@@ -323,12 +350,11 @@ function UpdateEnemies()
     end
 
     if enemyspawncount == enemyspawncountmax then
-        GenerateEnemy(1)
-        sfx(10)
+        --GenerateEnemy(1)
+        enemyspawncount = 0
     end
     if #enemies == 0 then
-        GenerateEnemy(1)
-        sfx(10)
+        --GenerateEnemy(1)
     else
         enemyspawncount += 1
     end
@@ -380,7 +406,7 @@ end
 
 function GenerateBackground()
     bgsprx = 112
-    bgspry = 16
+    bgspry = 0
 
     --Drawing tiled brick background 8x8
     for j=0, 8 do
@@ -410,8 +436,6 @@ function GenerateBackground()
 end
 
 function GenerateLevel()
-    tiles={}
-    
     lvlsprx = 0
     lvlspry = 0
     
@@ -456,7 +480,7 @@ function DestroyTile(x)
 end
 
 function GenerateEnemy(amount)
-    --enemyspawncount = 0
+    enemyspawncount = 0
     for i=1, amount do
         foundvalidspawn = false
         while foundvalidspawn == false do
@@ -472,9 +496,16 @@ function GenerateEnemy(amount)
         enemy={}
         enemy.x = tiles[randomnumber].x + 1
         enemy.y = tiles[randomnumber].y - 3
-        enemy.sprx = 108
-        enemy.spry = 0
-        enemy.ypreference = true
+        if flr(rnd(2)) == 1 then
+            enemy.sprx = 97
+            enemy.spry = 0
+            enemy.ypreference = true
+        else
+            enemy.sprx = 97
+            enemy.spry = 12
+            enemy.ypreference = false
+        end
+        sfx(10)
         enemy.tileindex = randomnumber
         add(enemies,enemy)
         add(tileupdateindex, enemy.tileindex)
@@ -515,8 +546,10 @@ function ConsumeDice(consumevalue)
     --Updating Affected Tiles
     if #diceinventory != 0 then
         tilescount = 1
+        wasitemuseless = true
         for tilescounttest in all(tiles) do
             if tiles[tilescount].value == diceinventory[1].value then
+                wasitemuseless = false
                 if (tiles[tilescount].value + consumevalue) != 7 then
                     tiles[tilescount].value += consumevalue
                     if consumevalue == 1 then
@@ -533,6 +566,9 @@ function ConsumeDice(consumevalue)
                         sfx(12)
                     end
                 end
+            end
+            if wasitemuseless == true then
+                sfx(14)
             end
             consumed = true
             tilescount += 1
@@ -561,59 +597,90 @@ end
 
 function _draw()
     cls()
-    GenerateBackground()
-
-    for drawval in all(tiles) do
-        if drawval.value != 0 then
-            sspr(12, 0, 12, 12, drawval.x, drawval.y)
-            sspr((drawval.value * 12), drawval.valueupdatedthisturn * 12, 12, 12, drawval.x, drawval.y)
+    if titlescreen == false then
+        
+        if turncount > 99 then
+            pal(2,0,1)
+            pal(12,0,1)
+        elseif turncount > 74 then
+            pal(2,140,1)
+            pal(12,131,1)
+        elseif turncount > 49 then
+            pal(2,130,1)
+            pal(12,5,1)
+        elseif turncount > 24 then
+            pal(2,131,1)
+            pal(12,134,1)
         else
-            sspr(0, 0, 12, 12, drawval.x, drawval.y)
+            pal(2,1,1)
+            pal(12,13,1)
         end
-    end
+        GenerateBackground()
 
-    --for drawedgeval in all(tileedgeindex) do
-        --rectfill(drawedgeval.x + 5, drawedgeval.y + 5, drawedgeval.x + 7, drawedgeval.y + 7, 12)
-    --end
-
-    for enemiesval in all(enemies) do
-        sspr(enemiesval.sprx, enemiesval.spry, 12, 12, enemiesval.x, enemiesval.y)
-    end
-
-    for diceinventoryval in all(diceinventory) do
-        sspr( 12, 0, 12, 12, diceinventoryval.x, diceinventoryval.y)
-        sspr(diceinventoryval.value * 12, 12, 12,12, diceinventoryval.x, diceinventoryval.y)
-    end
-
-    sspr(player.sprtopx,player.sprtopy,12,12,player.x,player.y)
-    --rectfill(tiles[player.tileindex].x, tiles[player.tileindex].y, tiles[player.tileindex].x + 11, tiles[player.tileindex].y + 11, 5)
-    if turncount > 9 then
-        turntext = "TURN:"..tostr("0")..tostr(turncount)
-    elseif turncount > 99 then
-        turntext = "TURN:"..tostr(turncount)
-    else
-        turntext = "TURN:"..tostr("00")..tostr(turncount)
-    end
-    print(turntext, 7, 119, 7)
-
-    if slaincount > 9 then
-        slaintext = "SLAIN:"..tostr(0)..tostr(slaincount)
-    elseif slaincount > 99 then
-        slaintext = "SLAIN:"..tostr(slaincount)
-    else
-        slaintext = "SLAIN:"..tostr("00")..tostr(slaincount)
-    end
-    print(slaintext, 65, 119, 7)
-
-    if gameover then
-        if gameoversoundcheck == false then
-            sfx(8)
-            gameoversoundcheck = true
+        for drawval in all(tiles) do
+            if drawval.value != 0 then
+                sspr(72, 0, 12, 12, drawval.x, drawval.y)
+                sspr((drawval.value * 12), drawval.valueupdatedthisturn * 12, 12, 12, drawval.x, drawval.y)
+            else
+                sspr(72, 12, 0, 12, 12, drawval.x, drawval.y)
+            end
         end
-        music(-1)
-        debugtext = ""
-        rectfill(0,0,128,128,8)
-        print("GAME", 54, 48,7)
-        print("OVER", 54, 56, 7)
+
+        --for drawedgeval in all(tileedgeindex) do
+            --rectfill(drawedgeval.x + 5, drawedgeval.y + 5, drawedgeval.x + 7, drawedgeval.y + 7, 12)
+        --end
+
+        for enemiesval in all(enemies) do
+            if enemiesval.x < player.x then
+                sspr(enemiesval.sprx - 2, enemiesval.spry, 12, 12, enemiesval.x, enemiesval.y, 12, 12, true)
+            else
+                sspr(enemiesval.sprx, enemiesval.spry, 12, 12, enemiesval.x, enemiesval.y)
+            end
+        end
+
+        for diceinventoryval in all(diceinventory) do
+            sspr( 72, 0, 12, 12, diceinventoryval.x, diceinventoryval.y)
+            sspr(diceinventoryval.value * 12, 12, 12,12, diceinventoryval.x, diceinventoryval.y)
+        end
+        if playerflip == true then
+            sspr(player.sprtopx,player.sprtopy,12,12,player.x - 2,player.y, 12, 12,playerflip)
+        else
+            sspr(player.sprtopx,player.sprtopy,12,12,player.x,player.y, 12, 12,playerflip)
+        end
+        --rectfill(tiles[player.tileindex].x, tiles[player.tileindex].y, tiles[player.tileindex].x + 11, tiles[player.tileindex].y + 11, 5)
+        if turncount > 99 then
+            turntext = "TURN:"..tostr(turncount)
+        elseif turncount > 9 then
+            turntext = "TURN:"..tostr("0")..tostr(turncount)
+        else
+            turntext = "TURN:"..tostr("00")..tostr(turncount)
+        end
+        print(turntext, 7, 119, 7)
+
+        if slaincount > 9 then
+            slaintext = "SLAIN:"..tostr(0)..tostr(slaincount)
+        elseif slaincount > 99 then
+            slaintext = "SLAIN:"..tostr(slaincount)
+        else
+            slaintext = "SLAIN:"..tostr("00")..tostr(slaincount)
+        end
+        print(slaintext, 65, 119, 7)
+
+        if gameover then
+            if gameoversoundcheck == false then
+                sfx(8)
+                gameoversoundcheck = true
+            end
+            music(-1)
+            debugtext = ""
+            rectfill(0,0,128,128,8)
+            print("GAME", 54, 48,7)
+            print("OVER", 54, 56, 7)
+        end
+    else
+        sspr(0, 51, 128, 76, 0, 59)
+        sspr(82,24,45,27,41,12)
+        print("PRESS ANY KEY", 38, 43, 7)
+        print("TO BEGIN", 47, 50, 7)
     end
 end
